@@ -46,3 +46,13 @@ const cli = yargs(hideBin(process.argv))
       }
     }
   )
+
+  // for Status command 
+  .command(
+    "status",
+    "view all jobs and thier current status",
+    () => {},
+    async () => {
+        await showJobs();
+    }
+  )

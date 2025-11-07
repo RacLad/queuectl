@@ -41,6 +41,16 @@ function getBackoffDelay(base, attempts) {
   return base ** attempts * 1000; // in milliseconds
 }
 
+// ✅ Command executor with OS-safe sleep fix
+function normalizeCommand(command) {
+  // Windows doesn’t have “sleep”, so convert it to timeout
+  if (process.platform === "win32" && command.startsWith("sleep")) {
+    const seconds = command.split(" ")[1] || "1";
+    return `timeout /t ${seconds} > NUL && echo "Slept for ${seconds}s"`;
+  }
+  return command;
+}
+
 //  Helper to execute a shell command
 function executeCommand(command) {
   return new Promise((resolve, reject) => {
@@ -57,25 +67,21 @@ function executeCommand(command) {
 }
 
 //  Worker Function
-async function runWorker(workerId) {
-  const config = JSON.parse(fs.readFileSync(CONFIG_FILE));
-  console.log(chalk.cyan(`👷 Worker ${workerId} started.`));
+export async function startWorker() {
+  console.log(chalk.cyan("👷 Worker started. Watching for jobs..."));
 
-  process.on("SIGINT", () => {
-    console.log(chalk.yellow(`\n🛑 Worker ${workerId} shutting down gracefully...`));
-    process.exit(0);
-  });
+  const baseBackoff = 2; // exponential base
 
   while (true) {
     const data = readJobsFile();
     const pendingJob = data.jobs.find((job) => job.state === "pending");
 
     if (!pendingJob) {
-      await delay(2000); // No pending jobs → wait 2s and check again
+      await delay(2000); // no pending jobs → wait 2s
       continue;
     }
 
-    // Mark job as processing
+    // Lock the job for processing
     pendingJob.state = "processing";
     pendingJob.updated_at = new Date().toISOString();
     writeJobsFile(data);
@@ -92,10 +98,12 @@ async function runWorker(workerId) {
       if (pendingJob.attempts <= pendingJob.max_retries) {
         pendingJob.state = "pending";
         const wait = getBackoffDelay(baseBackoff, pendingJob.attempts);
-        console.log(chalk.magenta(`⏳ Retrying ${pendingJob.id} after ${wait / 1000}s...`));
+        console.log(
+          chalk.magenta(`⏳ Retrying ${pendingJob.id} after ${wait / 1000}s (attempt ${pendingJob.attempts})...`)
+        );
         writeJobsFile(data);
         await delay(wait);
-        continue; // retry after delay
+        continue; // retry after backoff
       } else {
         console.log(chalk.red(`💀 Job ${pendingJob.id} failed permanently. Moving to DLQ.`));
         pendingJob.state = "dead";
@@ -106,12 +114,5 @@ async function runWorker(workerId) {
 
     pendingJob.updated_at = new Date().toISOString();
     writeJobsFile(data);
-  }
-  
-}
-
-export async function startWorker(count = 1) {
-  for (let i = 0; i < count; i++) {
-    runWorker(i + 1);
   }
 }

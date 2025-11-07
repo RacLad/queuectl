@@ -15,3 +15,11 @@ export function generateJobId() {
 export function getCurrentTimestamp() {
   return new Date().toISOString();
 }
+
+/**
+ * Sleep helper — pauses execution for given seconds
+ * @param {number} seconds 
+ */
+export function sleep(seconds) {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+}

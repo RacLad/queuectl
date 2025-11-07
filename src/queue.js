@@ -21,3 +21,24 @@ function readJobsFile() {
 function writeJobsFile(data) {
   fs.writeFileSync(JOBS_FILE, JSON.stringify(data, null, 2));
 }
+
+//  Function to create a new job i.e new object
+export async function enqueueJob(command) {
+  const data = readJobsFile();
+
+  const newJob = {
+    id: `job-${Date.now()}`, // unique ID
+    command,
+    state: "pending",        // waiting for worker
+    attempts: 0,             // retry count
+    max_retries: 3,          // configurable later
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  
+  data.jobs.push(newJob);
+  writeJobsFile(data);
+
+  console.log(chalk.green(`Enqueued job: ${newJob.id}`));
+  return newJob;
+}

@@ -9,6 +9,15 @@
       "max_retries": 3,
       "created_at": "2025-11-07T18:12:59.325Z",
       "updated_at": "2025-11-07T18:13:19.691Z"
+    },
+    {
+      "id": "job-1762539377968",
+      "command": "timeout /t 3 > NUL && echo 'Slept well!'",
+      "state": "dead",
+      "attempts": 4,
+      "max_retries": 3,
+      "created_at": "2025-11-07T18:16:17.968Z",
+      "updated_at": "2025-11-07T18:16:34.596Z"
     }
   ]
 }

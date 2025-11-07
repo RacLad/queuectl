@@ -39,14 +39,21 @@ function getBackoffDelay(base, attempts) {
   return base ** attempts * 1000; // milliseconds
 }
 
-// ✅ Fix "sleep" command for Windows
 function normalizeCommand(command) {
-  if (process.platform === "win32" && command.startsWith("sleep")) {
-    const seconds = command.split(" ")[1] || "1";
-    return `timeout /t ${seconds} && echo Slept for ${seconds}s`;
+  if (process.platform === "win32") {
+    // Replace `sleep N` with Windows timeout
+    if (command.startsWith("sleep")) {
+      const seconds = command.split(" ")[1] || "1";
+      return `timeout /t ${seconds} && echo Slept for ${seconds}s`;
+    }
+
+    // ❌ Remove `> NUL` (not supported by spawn/cmd redirection)
+    return command.replace(/>\s*NUL/gi, "").trim();
   }
+
   return command;
 }
+
 
 // ✅ Cross-platform command executor
 function executeCommand(command) {

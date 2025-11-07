@@ -211,8 +211,8 @@ node queuect1.js dlq
 ## 🧑‍💻 Author & Acknowledgments
 
 **Project Name:** QueueCTL  
-**Developed By:** [Your Full Name]  
-**Submitted For:** Placement Assignment / System Design Evaluation  
+**Developed By:** PRETHEEV SIVAKUMAR
+**Submitted For:** Placement Assignment  
 **Technologies Used:** Node.js, Chalk, Yargs, JSON Storage  
 
 ---

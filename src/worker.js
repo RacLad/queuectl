@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
 import chalk from "chalk";
 import { fileURLToPath } from "url";
+import { spawn } from "child_process";
 import { setTimeout as delay } from "timers/promises";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const JOBS_FILE = path.join(__dirname, "../jobs.json");
 const CONFIG_FILE = path.join(__dirname, "config.json");
 
-// ensures the json file existence
+// ✅ Ensure jobs and config files exist
 function ensureFiles() {
   if (!fs.existsSync(JOBS_FILE)) {
     fs.writeFileSync(JOBS_FILE, JSON.stringify({ jobs: [], dlq: [] }, null, 2));
@@ -24,11 +24,9 @@ function ensureFiles() {
   }
 }
 
-// Helper: read and write job file
+// ✅ Read/write helpers
 function readJobsFile() {
-  if (!fs.existsSync(JOBS_FILE)) {
-    fs.writeFileSync(JOBS_FILE, JSON.stringify({ jobs: [], dlq: [] }, null, 2));
-  }
+  ensureFiles();
   return JSON.parse(fs.readFileSync(JOBS_FILE));
 }
 
@@ -36,52 +34,66 @@ function writeJobsFile(data) {
   fs.writeFileSync(JOBS_FILE, JSON.stringify(data, null, 2));
 }
 
-//  Exponential Backoff Calculation
+// ✅ Exponential backoff
 function getBackoffDelay(base, attempts) {
-  return base ** attempts * 1000; // in milliseconds
+  return base ** attempts * 1000; // milliseconds
 }
 
-// ✅ Command executor with OS-safe sleep fix
+// ✅ Fix "sleep" command for Windows
 function normalizeCommand(command) {
-  // Windows doesn’t have “sleep”, so convert it to timeout
   if (process.platform === "win32" && command.startsWith("sleep")) {
     const seconds = command.split(" ")[1] || "1";
-    return `timeout /t ${seconds} > NUL && echo "Slept for ${seconds}s"`;
+    return `timeout /t ${seconds} && echo Slept for ${seconds}s`;
   }
   return command;
 }
 
-//  Helper to execute a shell command
+// ✅ Cross-platform command executor
 function executeCommand(command) {
   return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.log(chalk.red(`❌ Command failed: ${stderr || error.message}`));
-        reject(error);
+    const normalized = normalizeCommand(command);
+
+    const shell = process.platform === "win32" ? "cmd.exe" : "/bin/bash";
+    const cmdArg = process.platform === "win32" ? ["/C", normalized] : ["-c", normalized];
+
+    const child = spawn(shell, cmdArg, { stdio: "pipe" });
+
+    let output = "";
+    let errorOutput = "";
+
+    child.stdout.on("data", (data) => (output += data.toString()));
+    child.stderr.on("data", (data) => (errorOutput += data.toString()));
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        console.log(chalk.green(`✅ Command success: ${output.trim()}`));
+        resolve(output);
       } else {
-        console.log(chalk.green(`✅ Command success: ${stdout.trim()}`));
-        resolve(stdout);
+        console.log(chalk.red(`❌ Command failed: ${errorOutput || `Exit code ${code}`}`));
+        reject(new Error(errorOutput || `Exit code ${code}`));
       }
     });
   });
 }
 
-//  Worker Function
+// ✅ Worker Loop
 export async function startWorker() {
+  ensureFiles();
   console.log(chalk.cyan("👷 Worker started. Watching for jobs..."));
 
-  const baseBackoff = 2; // exponential base
+  const config = JSON.parse(fs.readFileSync(CONFIG_FILE));
+  const baseBackoff = config.backoff_base || 2;
 
   while (true) {
     const data = readJobsFile();
     const pendingJob = data.jobs.find((job) => job.state === "pending");
 
     if (!pendingJob) {
-      await delay(2000); // no pending jobs → wait 2s
+      await delay(2000); // wait before checking again
       continue;
     }
 
-    // Lock the job for processing
+    // Mark job as processing
     pendingJob.state = "processing";
     pendingJob.updated_at = new Date().toISOString();
     writeJobsFile(data);
@@ -92,18 +104,20 @@ export async function startWorker() {
       await executeCommand(pendingJob.command);
       pendingJob.state = "completed";
       console.log(chalk.green(`🎉 Job ${pendingJob.id} completed successfully.`));
-    } catch (err) {
+    } catch {
       pendingJob.attempts += 1;
 
       if (pendingJob.attempts <= pendingJob.max_retries) {
         pendingJob.state = "pending";
         const wait = getBackoffDelay(baseBackoff, pendingJob.attempts);
         console.log(
-          chalk.magenta(`⏳ Retrying ${pendingJob.id} after ${wait / 1000}s (attempt ${pendingJob.attempts})...`)
+          chalk.magenta(
+            `⏳ Retrying ${pendingJob.id} after ${wait / 1000}s (attempt ${pendingJob.attempts})...`
+          )
         );
         writeJobsFile(data);
         await delay(wait);
-        continue; // retry after backoff
+        continue;
       } else {
         console.log(chalk.red(`💀 Job ${pendingJob.id} failed permanently. Moving to DLQ.`));
         pendingJob.state = "dead";

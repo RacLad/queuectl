@@ -56,3 +56,13 @@ const cli = yargs(hideBin(process.argv))
         await showJobs();
     }
   )
+
+  //for DLQ command 
+  .command(
+    "dlq",
+    "View all permanently faiiled jobs (Dead Letter Queue)",
+    () => {},
+    async () => {
+        await showDLQ();
+    }
+  )

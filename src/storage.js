@@ -27,3 +27,13 @@ export function readJobsFile() {
     const rawData = fs.readFileSync(JOBS_FILE, "utf-8");
     return JSON.parse(rawData);
 }
+
+
+/**
+ * Writes updated job data back to jobs.json
+ * @param {Object} data - updated jobs object
+ */
+export function writeJobsFile(data) {
+    fs.writeFileSync(JOBS_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
+

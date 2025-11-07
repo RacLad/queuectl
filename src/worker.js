@@ -65,7 +65,7 @@ async function runWorker(workerId) {
     console.log(chalk.yellow(`\n🛑 Worker ${workerId} shutting down gracefully...`));
     process.exit(0);
   });
-  
+
   while (true) {
     const data = readJobsFile();
     const pendingJob = data.jobs.find((job) => job.state === "pending");
@@ -106,5 +106,12 @@ async function runWorker(workerId) {
 
     pendingJob.updated_at = new Date().toISOString();
     writeJobsFile(data);
+  }
+  
+}
+
+export async function startWorker(count = 1) {
+  for (let i = 0; i < count; i++) {
+    runWorker(i + 1);
   }
 }

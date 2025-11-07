@@ -33,10 +33,17 @@ const cli = yargs(hideBin(process.argv))
     "worker <action>",
     "Manage worker actions (start)",
     (yargs) => {
-      yargs.positional("action", {
+      yargs
+      .positional("action", {
         describe: "Action for worker (e.g., start)",
         type: "string",
         choices: ["start"],
+      })
+        .option("count", {
+          alias: "c",
+          type: "number",
+          default: 1,
+          describe: "Number of workers to run",
       });
     },
     async (argv) => {

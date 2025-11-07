@@ -9,6 +9,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const JOBS_FILE = path.join(__dirname, "../jobs.json");
+const CONFIG_FILE = path.join(__dirname, "config.json");
+
+function ensureFiles() {
+  if (!fs.existsSync(JOBS_FILE)) {
+    fs.writeFileSync(JOBS_FILE, JSON.stringify({ jobs: [], dlq: [] }, null, 2));
+  }
+  if (!fs.existsSync(CONFIG_FILE)) {
+    fs.writeFileSync(
+      CONFIG_FILE,
+      JSON.stringify({ max_retries: 3, backoff_base: 2 }, null, 2)
+    );
+  }
+}
 
 // Helper: read and write job file
 function readJobsFile() {

@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 const JOBS_FILE = path.join(__dirname, "../jobs.json");
 const CONFIG_FILE = path.join(__dirname, "config.json");
 
+// ensures the json file existence
 function ensureFiles() {
   if (!fs.existsSync(JOBS_FILE)) {
     fs.writeFileSync(JOBS_FILE, JSON.stringify({ jobs: [], dlq: [] }, null, 2));
@@ -56,10 +57,15 @@ function executeCommand(command) {
 }
 
 //  Worker Function
-export async function startWorker() {
-  console.log(chalk.cyan("👷 Worker started. Watching for jobs..."));
-  const baseBackoff = 2; // exponential base
+async function runWorker(workerId) {
+  const config = JSON.parse(fs.readFileSync(CONFIG_FILE));
+  console.log(chalk.cyan(`👷 Worker ${workerId} started.`));
 
+  process.on("SIGINT", () => {
+    console.log(chalk.yellow(`\n🛑 Worker ${workerId} shutting down gracefully...`));
+    process.exit(0);
+  });
+  
   while (true) {
     const data = readJobsFile();
     const pendingJob = data.jobs.find((job) => job.state === "pending");

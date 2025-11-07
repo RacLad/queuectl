@@ -18,3 +18,12 @@ function ensureFileExists() {
     }
 }
 
+/**
+ * Reads jobs.json and returns parsed object
+ * @returns {Object} job data
+ */
+export function readJobsFile() {
+    ensureFileExists();
+    const rawData = fs.readFileSync(JOBS_FILE, "utf-8");
+    return JSON.parse(rawData);
+}
